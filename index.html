@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=2.0">
+    <title>Warhammer 40,000 Combat Calculator</title>
+    <style>
+        :root {
+            /* Base Theme Colors */
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #3a3a3a;
+            --text-primary: #e8e8e8;
+            --text-secondary: #c0c0c0;
+            --text-muted: #999999;
+            --border: #555555;
+            
+            /* Accent Colors */
+            --accent-color: #cc3333;
+            --accent-dark: #aa2222;
+            --accent-light: #ee5555;
+            
+            /* Success Colors */
+            --success-color: #4a9d4a;
+            --success-dark: #3d8b3d;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Minion-Pro, times new roman, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.3;
+            font-size: 12px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+            border-bottom: 2px solid var(--accent-color);
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: var(--accent-color);
+            font-size: 24px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+        
+        .section {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 2px solid var(--accent-color);
+            padding: 8px 15px;
+            font-weight: 600;
+            color: var(--accent-color);
+            font-size: 14px;
+        }
+        
+        .section-content {
+            padding: 15px;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        
+        .combat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 6px 10px;
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text-primary);
+            font-size: 12px;
+            transition: border-color 0.2s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(204, 51, 51, 0.2);
+        }
+        
+        .form-control option {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .stat-table {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .unit-card {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .unit-card-header {
+            background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-dark) 100%);
+            color: white;
+            padding: 8px 15px;
+            font-weight: 600;
+            text-align: center;
+            font-size: 13px;
+        }
+        
+        .unit-card-body {
+            padding: 15px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-dark) 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            transition: all 0.2s ease;
+            min-width: 200px;
+        }
+        
+        .btn:hover {
+            background: linear-gradient(135deg, var(--accent-dark) 0%, #882222 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(204, 51, 51, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results-section {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .results-header {
+            background: linear-gradient(135deg, var(--success-color) 0%, var(--success-dark) 100%);
+            color: white;
+            padding: 8px 15px;
+            font-weight: 600;
+            text-align: center;
+            font-size: 13px;
+        }
+        
+        .results-body {
+            padding: 15px;
+        }
+        
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        
+        .result-table th,
+        .result-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+        
+        .result-table th {
+            background-color: var(--bg-tertiary);
+            color: var(--accent-color);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--accent-color);
+        }
+        
+        .result-table .value {
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+        
+        .probability-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+        
+        .probability-card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .probability-card .label {
+            color: var(--text-secondary);
+            font-size: 10px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        .probability-card .value {
+            color: var(--accent-color);
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .info-box {
+            background-color: rgba(74, 144, 226, 0.1);
+            border: 1px solid rgba(74, 144, 226, 0.3);
+            color: #88ccff;
+            padding: 12px;
+            border-radius: 3px;
+            margin-bottom: 15px;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        
+        .loading-message {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 20px;
+            font-style: italic;
+        }
+        
+        .error-message {
+            background-color: rgba(204, 51, 51, 0.2);
+            border: 1px solid var(--accent-color);
+            color: #ff9999;
+            padding: 12px;
+            border-radius: 3px;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 11px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+            
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            
+            .combat-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .stat-table {
+                grid-template-columns: 1fr;
+            }
+            
+            .probability-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .unit-card-body {
+                padding: 10px;
+            }
+            
+            .unit-card-header {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .form-group {
+                margin-bottom: 8px;
+            }
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>40K Combat Calculator</h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="info-box">
+            <strong>How to use:</strong> Select your attacking and defending factions, choose specific units and weapons, then calculate expected combat results. Model counts and unit stats are automatically loaded from the game data.
+        </div>
+
+        <div id="loading-section" class="loading-message">
+            Loading game data...
+        </div>
+
+        <div id="main-content" style="display: none;">
+            <!-- Faction Selection -->
+            <div class="section">
+                <div class="section-header">
+                    Faction Selection
+                </div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="attacker-faction">Attacking Faction</label>
+                            <select id="attacker-faction" class="form-control" onchange="filterAttackerByFaction()">
+                                <option value="">Choose Faction...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="defender-faction">Defending Faction</label>
+                            <select id="defender-faction" class="form-control" onchange="filterDefenderByFaction()">
+                                <option value="">Choose Faction...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unit Selection -->
+            <div class="section">
+                <div class="section-header">
+                    Unit & Weapon Selection
+                </div>
+                <div class="section-content">
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label for="attacker-unit">Attacking Unit</label>
+                            <select id="attacker-unit" class="form-control" onchange="loadAttackerUnit()">
+                                <option value="">Select Faction First...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="attacker-weapon">Weapon</label>
+                            <select id="attacker-weapon" class="form-control" onchange="loadAttackerWeapon()">
+                                <option value="">Select Unit First...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="defender-unit">Defending Unit</label>
+                            <select id="defender-unit" class="form-control" onchange="loadDefenderUnit()">
+                                <option value="">Select Faction First...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Combat Setup -->
+            <div class="section">
+                <div class="section-header">
+                    Combat Parameters
+                </div>
+                <div class="section-content">
+                    <div class="combat-grid">
+                        <!-- Attacking Unit -->
+                        <div class="unit-card">
+                            <div class="unit-card-header">
+                                Attacking Unit
+                            </div>
+                            <div class="unit-card-body">
+                                <div class="stat-table">
+                                    <div class="form-group">
+                                        <label for="attacks">Attacks</label>
+                                        <input type="number" id="attacks" class="form-control" min="0.1" max="50" value="3" step="0.1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="ws">Weapon Skill</label>
+                                        <input type="number" id="ws" class="form-control" min="2" max="6" value="3">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="strength">Strength</label>
+                                        <input type="number" id="strength" class="form-control" min="1" max="20" value="4">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="ap">AP</label>
+                                        <input type="number" id="ap" class="form-control" min="0" max="6" value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="damage">Damage</label>
+                                        <input type="number" id="damage" class="form-control" min="0.1" max="20" value="1" step="0.1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="models">Models</label>
+                                        <input type="number" id="models" class="form-control" min="1" max="100" value="5">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Defending Unit -->
+                        <div class="unit-card">
+                            <div class="unit-card-header">
+                                Defending Unit
+                            </div>
+                            <div class="unit-card-body">
+                                <div class="stat-table">
+                                    <div class="form-group">
+                                        <label for="toughness">Toughness</label>
+                                        <input type="number" id="toughness" class="form-control" min="1" max="20" value="4">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="armor_save">Armor Save</label>
+                                        <input type="number" id="armor_save" class="form-control" min="2" max="6" value="3">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="invul_save">Invulnerable Save</label>
+                                        <input type="number" id="invul_save" class="form-control" min="2" max="6" value="" placeholder="None">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="fnp">Feel No Pain</label>
+                                        <input type="number" id="fnp" class="form-control" min="2" max="6" value="" placeholder="None">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="wounds">Wounds</label>
+                                        <input type="number" id="wounds" class="form-control" min="1" max="50" value="1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="defender-models">Models</label>
+                                        <input type="number" id="defender-models" class="form-control" min="1" max="200" value="5">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="results">
+                <div class="results-header">
+                    Combat Forecast Results
+                </div>
+                <div class="results-body">
+                    <div class="total-attacks-display" id="total-attacks-display" style="background-color: var(--bg-secondary); border: 1px solid var(--border); border-radius: 3px; padding: 12px; margin-bottom: 15px; text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 4px; text-transform: uppercase; font-weight: 500;">Total Attacks</div>
+                        <div id="total-attacks-value" style="color: var(--accent-color); font-size: 18px; font-weight: 600;">--</div>
+                    </div>
+
+                    <table class="result-table">
+                        <tbody id="result-table-body">
+                        </tbody>
+                    </table>
+
+                    <div class="section-header" style="margin: 15px 0 10px 0; background: none; padding: 0; border: none; color: var(--accent-color);">
+                        Probability Breakdown
+                    </div>
+                    <div class="probability-grid" id="probability-breakdown">
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn" onclick="calculateCombat()" id="calculate-btn">
+                Calculate Combat Results
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Data file configuration
+        const DATA_PATHS = {
+            datasheets: './data/Datasheets.csv',
+            factions: './data/Factions.csv', 
+            composition: './data/Datasheets_unit_composition.csv',
+            units: './data/Datasheets_models.csv',
+            weapons: './data/Datasheets_wargear.csv'
+        };
+        
+        // Data storage
+        let unitsData = [];
+        let weaponsData = [];
+        let datasheetData = [];
+        let factionsData = [];
+        let compositionData = [];
+        let factionMap = new Map();
+        let selectedAttackerFaction = '';
+        let selectedDefenderFaction = '';
+        
+        // Input sanitization
+        function sanitizeText(text) {
+            if (typeof text !== 'string') return '';
+            return text.replace(/[<>'"&]/g, function(char) {
+                const map = {
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#x27;',
+                    "&": '&amp;'
+                };
+                return map[char];
+            });
+        }
+        
+        // Number validation
+        function validateNumber(value, min = -Infinity, max = Infinity) {
+            const num = parseFloat(value);
+            if (isNaN(num) || num < min || num > max) {
+                return null;
+            }
+            return num;
+        }
+        
+        // Safe DOM element creation
+        function createOption(text, value) {
+            const option = document.createElement('option');
+            option.textContent = sanitizeText(text);
+            option.value = sanitizeText(value);
+            return option;
+        }
+        
+        // Error handling
+        function showError(message) {
+            const container = document.getElementById('main-content');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = sanitizeText(message);
+            container.insertBefore(errorDiv, container.firstChild);
+        }
+        
+        // Load CSV data safely
+        async function loadCSV(path) {
+            try {
+                const response = await fetch(path);
+                if (!response.ok) {
+                    throw new Error(`Failed to load ${path}: ${response.status}`);
+                }
+                const text = await response.text();
+                
+                return Papa.parse(text, {
+                    delimiter: '|',
+                    header: false,
+                    dynamicTyping: false,
+                    skipEmptyLines: true
+                });
+            } catch (error) {
+                console.error('CSV loading error:', error);
+                throw error;
+            }
+        }
+        
+        // Initialize application
+        async function initializeApp() {
+            try {
+                await Promise.all([
+                    loadDatasheets(),
+                    loadFactions(),
+                    loadComposition(),
+                    loadUnits(),
+                    loadWeapons()
+                ]);
+                
+                buildFactionMap();
+                populateFactionDropdown();
+                
+                document.getElementById('loading-section').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                
+            } catch (error) {
+                document.getElementById('loading-section').textContent = 'Error loading game data. Please refresh the page.';
+                console.error('Initialization error:', error);
+            }
+        }
+        
+        async function loadDatasheets() {
+            const parsed = await loadCSV(DATA_PATHS.datasheets);
+            datasheetData = parsed.data.map(row => {
+                if (row.length >= 4) {
+                    return {
+                        id: sanitizeText(row[0]),
+                        name: sanitizeText(row[1]),
+                        faction_id: sanitizeText(row[2]),
+                        source_id: sanitizeText(row[3])
+                    };
+                }
+                return null;
+            }).filter(sheet => sheet !== null);
+        }
+        
+        async function loadFactions() {
+            const parsed = await loadCSV(DATA_PATHS.factions);
+            factionsData = parsed.data.map(row => {
+                if (row.length >= 2) {
+                    return {
+                        id: sanitizeText(row[0]),
+                        name: sanitizeText(row[1])
+                    };
+                }
+                return null;
+            }).filter(faction => faction !== null);
+        }
+        
+        async function loadComposition() {
+            const parsed = await loadCSV(DATA_PATHS.composition);
+            compositionData = parsed.data.map(row => {
+                if (row.length >= 3) {
+                    return {
+                        datasheet_id: sanitizeText(row[0]),
+                        line: sanitizeText(row[1]),
+                        description: sanitizeText(row[2])
+                    };
+                }
+                return null;
+            }).filter(comp => comp !== null);
+        }
+        
+        async function loadUnits() {
+            const parsed = await loadCSV(DATA_PATHS.units);
+            unitsData = parsed.data.map(row => {
+                if (row.length >= 13) {
+                    return {
+                        id: sanitizeText(row[0]),
+                        faction_id: sanitizeText(row[1]),
+                        name: sanitizeText(row[2]),
+                        movement: sanitizeText(row[3]),
+                        toughness: sanitizeText(row[4]),
+                        save: sanitizeText(row[5]),
+                        wounds: sanitizeText(row[6]),
+                        leadership: sanitizeText(row[7]),
+                        objective_control: sanitizeText(row[8]),
+                        invul_save: sanitizeText(row[9]),
+                        feel_no_pain: sanitizeText(row[10]),
+                        base_size: sanitizeText(row[11]),
+                        keywords: sanitizeText(row[12])
+                    };
+                }
+                return null;
+            }).filter(unit => unit !== null);
+        }
+        
+        async function loadWeapons() {
+            const parsed = await loadCSV(DATA_PATHS.weapons);
+            weaponsData = parsed.data.map(row => {
+                if (row.length >= 13) {
+                    return {
+                        id: sanitizeText(row[0]),
+                        faction_id: sanitizeText(row[1]),
+                        source_id: sanitizeText(row[2]),
+                        line: sanitizeText(row[3]),
+                        name: sanitizeText(row[4]),
+                        abilities: sanitizeText(row[5]),
+                        range: sanitizeText(row[6]),
+                        type: sanitizeText(row[7]),
+                        attacks: sanitizeText(row[8]),
+                        ws_bs: sanitizeText(row[9]),
+                        strength: sanitizeText(row[10]),
+                        ap: sanitizeText(row[11]),
+                        damage: sanitizeText(row[12])
+                    };
+                }
+                return null;
+            }).filter(weapon => weapon !== null);
+        }
+        
+        function getFactionName(factionId) {
+            const faction = factionsData.find(f => f.id === factionId);
+            return faction ? faction.name : `Faction ${factionId}`;
+        }
+        
+        function getModelCount(datasheetId) {
+            const compositions = compositionData.filter(comp => comp.datasheet_id === datasheetId);
+            
+            if (compositions.length === 0) return 1;
+            
+            let totalModels = 0;
+            compositions.forEach(comp => {
+                const match = comp.description.match(/^(\d+)/);
+                if (match) {
+                    totalModels += parseInt(match[1]);
+                }
+            });
+            
+            return totalModels || 1;
+        }
+        
+        function buildFactionMap() {
+            factionMap.clear();
+            datasheetData.forEach(sheet => {
+                if (!factionMap.has(sheet.faction_id)) {
+                    factionMap.set(sheet.faction_id, {
+                        id: sheet.faction_id,
+                        datasheets: []
+                    });
+                }
+                factionMap.get(sheet.faction_id).datasheets.push(sheet);
+            });
+        }
+        
+        function populateFactionDropdown() {
+            const attackerSelect = document.getElementById('attacker-faction');
+            const defenderSelect = document.getElementById('defender-faction');
+            
+            attackerSelect.innerHTML = '';
+            defenderSelect.innerHTML = '';
+            
+            attackerSelect.appendChild(createOption('Choose Faction...', ''));
+            defenderSelect.appendChild(createOption('Choose Faction...', ''));
+            
+            const factionIds = Array.from(factionMap.keys()).sort((a, b) => {
+                const nameA = getFactionName(a);
+                const nameB = getFactionName(b);
+                return nameA.localeCompare(nameB, undefined, { 
+                    numeric: true, 
+                    sensitivity: 'base' 
+                });
+            });
+            
+            factionIds.forEach(factionId => {
+                const factionData = factionMap.get(factionId);
+                const factionName = getFactionName(factionId);
+                const optionText = `${factionName} (${factionData.datasheets.length} units)`;
+                
+                attackerSelect.appendChild(createOption(optionText, factionId));
+                defenderSelect.appendChild(createOption(optionText, factionId));
+            });
+        }
+        
+        function filterAttackerByFaction() {
+            selectedAttackerFaction = document.getElementById('attacker-faction').value;
+            populateAttackerUnitDropdown();
+        }
+        
+        function filterDefenderByFaction() {
+            selectedDefenderFaction = document.getElementById('defender-faction').value;
+            populateDefenderUnitDropdown();
+        }
+        
+        function populateAttackerUnitDropdown() {
+            const attackerSelect = document.getElementById('attacker-unit');
+            
+            attackerSelect.innerHTML = '';
+            
+            if (!selectedAttackerFaction) {
+                attackerSelect.appendChild(createOption('Select Faction First...', ''));
+                return;
+            }
+            
+            attackerSelect.appendChild(createOption('Choose Unit...', ''));
+            
+            const factionDatasheets = factionMap.get(selectedAttackerFaction)?.datasheets || [];
+            const factionUnitIds = factionDatasheets.map(sheet => sheet.id);
+            const filteredUnits = unitsData.filter(unit => factionUnitIds.includes(unit.id));
+            
+            const sortedUnits = [...filteredUnits].sort((a, b) => {
+                return a.name.localeCompare(b.name, undefined, { 
+                    numeric: true, 
+                    sensitivity: 'base' 
+                });
+            });
+            
+            sortedUnits.forEach((unit) => {
+                const originalIndex = unitsData.indexOf(unit);
+                const displayName = `${unit.name} (T${unit.toughness}, ${unit.save})`;
+                attackerSelect.appendChild(createOption(displayName, originalIndex.toString()));
+            });
+        }
+        
+        function populateDefenderUnitDropdown() {
+            const defenderSelect = document.getElementById('defender-unit');
+            
+            defenderSelect.innerHTML = '';
+            
+            if (!selectedDefenderFaction) {
+                defenderSelect.appendChild(createOption('Select Faction First...', ''));
+                return;
+            }
+            
+            defenderSelect.appendChild(createOption('Choose Unit...', ''));
+            
+            const factionDatasheets = factionMap.get(selectedDefenderFaction)?.datasheets || [];
+            const factionUnitIds = factionDatasheets.map(sheet => sheet.id);
+            const filteredUnits = unitsData.filter(unit => factionUnitIds.includes(unit.id));
+            
+            const sortedUnits = [...filteredUnits].sort((a, b) => {
+                return a.name.localeCompare(b.name, undefined, { 
+                    numeric: true, 
+                    sensitivity: 'base' 
+                });
+            });
+            
+            sortedUnits.forEach((unit) => {
+                const originalIndex = unitsData.indexOf(unit);
+                const displayName = `${unit.name} (T${unit.toughness}, ${unit.save})`;
+                defenderSelect.appendChild(createOption(displayName, originalIndex.toString()));
+            });
+        }
+        
+        function populateWeaponDropdowns() {
+            const weaponSelect = document.getElementById('attacker-weapon');
+            const selectedUnitIndex = document.getElementById('attacker-unit').value;
+            
+            weaponSelect.innerHTML = '';
+            
+            if (selectedUnitIndex === '') {
+                weaponSelect.appendChild(createOption('Select Unit First...', ''));
+                return;
+            }
+            
+            weaponSelect.appendChild(createOption('Choose Weapon...', ''));
+            
+            const unitIndex = validateNumber(selectedUnitIndex, 0, unitsData.length - 1);
+            if (unitIndex === null) return;
+            
+            const selectedUnit = unitsData[unitIndex];
+            if (!selectedUnit) return;
+            
+            let availableWeapons = weaponsData.filter(weapon => weapon.id === selectedUnit.id);
+            
+            if (availableWeapons.length === 0) {
+                availableWeapons = weaponsData.filter(weapon => weapon.faction_id === selectedUnit.faction_id);
+            }
+            
+            availableWeapons.sort((a, b) => a.name.localeCompare(b.name, undefined, { 
+                numeric: true, 
+                sensitivity: 'base' 
+            }));
+            
+            const rangedWeapons = availableWeapons.filter(w => w.type === 'Ranged');
+            const meleeWeapons = availableWeapons.filter(w => w.type === 'Melee');
+            
+            if (rangedWeapons.length > 0) {
+                const rangedGroup = document.createElement('optgroup');
+                rangedGroup.label = 'Ranged Weapons';
+                rangedWeapons.forEach((weapon) => {
+                    const originalIndex = weaponsData.indexOf(weapon);
+                    const displayName = weapon.range ? `${weapon.name} (${weapon.range}")` : weapon.name;
+                    rangedGroup.appendChild(createOption(displayName, originalIndex.toString()));
+                });
+                weaponSelect.appendChild(rangedGroup);
+            }
+            
+            if (meleeWeapons.length > 0) {
+                const meleeGroup = document.createElement('optgroup');
+                meleeGroup.label = 'Melee Weapons';
+                meleeWeapons.forEach((weapon) => {
+                    const originalIndex = weaponsData.indexOf(weapon);
+                    meleeGroup.appendChild(createOption(weapon.name, originalIndex.toString()));
+                });
+                weaponSelect.appendChild(meleeGroup);
+            }
+        }
+        
+        function loadAttackerUnit() {
+            const unitIndexStr = document.getElementById('attacker-unit').value;
+            const unitIndex = validateNumber(unitIndexStr, 0, unitsData.length - 1);
+            
+            if (unitIndex === null) {
+                populateWeaponDropdowns();
+                return;
+            }
+            
+            const unit = unitsData[unitIndex];
+            if (!unit) return;
+            
+            populateWeaponDropdowns();
+            
+            if (compositionData.length > 0) {
+                const modelCount = getModelCount(unit.id);
+                const modelsField = document.getElementById('models');
+                modelsField.value = modelCount;
+            }
+            
+            const wsField = document.getElementById('ws');
+            wsField.value = 3;
+        }
+        
+        function loadAttackerWeapon() {
+            const weaponIndexStr = document.getElementById('attacker-weapon').value;
+            const weaponIndex = validateNumber(weaponIndexStr, 0, weaponsData.length - 1);
+            
+            if (weaponIndex === null) return;
+            
+            const weapon = weaponsData[weaponIndex];
+            if (!weapon) return;
+            
+            const attacksField = document.getElementById('attacks');
+            const strengthField = document.getElementById('strength');
+            const apField = document.getElementById('ap');
+            const damageField = document.getElementById('damage');
+            const wsField = document.getElementById('ws');
+            
+            // Parse attacks safely
+            let attacks = weapon.attacks;
+            if (attacks === 'D6') attacks = 3.5;
+            else if (attacks === 'D3') attacks = 2;
+            else if (attacks === '2D6') attacks = 7;
+            else if (attacks === '3D6') attacks = 10.5;
+            else attacks = validateNumber(attacks, 0.1, 50) || 1;
+            
+            const strength = validateNumber(weapon.strength, 1, 20) || 4;
+            
+            let ap = weapon.ap;
+            if (ap && ap.startsWith('-')) {
+                ap = validateNumber(ap.substring(1), 0, 6) || 0;
+            } else {
+                ap = validateNumber(ap, 0, 6) || 0;
+            }
+            
+            let damage = weapon.damage;
+            if (damage === 'D6') damage = 3.5;
+            else if (damage === 'D3') damage = 2;
+            else if (damage === '2D6') damage = 7;
+            else if (damage === '3D6') damage = 10.5;
+            else damage = validateNumber(damage, 0.1, 20) || 1;
+            
+            const ws = validateNumber(weapon.ws_bs, 2, 6) || 3;
+            
+            attacksField.value = attacks;
+            strengthField.value = strength;
+            apField.value = ap;
+            damageField.value = damage;
+            wsField.value = ws;
+        }
+        
+        function loadDefenderUnit() {
+            const unitIndexStr = document.getElementById('defender-unit').value;
+            const unitIndex = validateNumber(unitIndexStr, 0, unitsData.length - 1);
+            
+            if (unitIndex === null) return;
+            
+            const unit = unitsData[unitIndex];
+            if (!unit) return;
+            
+            const toughnessField = document.getElementById('toughness');
+            const armorField = document.getElementById('armor_save');
+            const invulField = document.getElementById('invul_save');
+            const fnpField = document.getElementById('fnp');
+            const woundsField = document.getElementById('wounds');
+            
+            if (compositionData.length > 0) {
+                const modelCount = getModelCount(unit.id);
+                const defenderModelsField = document.getElementById('defender-models');
+                defenderModelsField.value = modelCount;
+            }
+            
+            const toughness = validateNumber(unit.toughness, 1, 20) || 4;
+            
+            let armor = unit.save;
+            if (armor && armor.includes('+')) {
+                armor = validateNumber(armor.replace('+', ''), 2, 6) || 6;
+            } else if (armor === '-') {
+                armor = 7;
+            } else {
+                armor = validateNumber(armor, 2, 6) || 6;
+            }
+            
+            let invul = unit.invul_save;
+            if (invul && invul !== '-' && invul.includes('+')) {
+                invul = validateNumber(invul.replace('+', ''), 2, 6);
+            } else {
+                invul = null;
+            }
+            
+            let fnp = unit.feel_no_pain;
+            if (fnp && fnp !== '-' && fnp.includes('+')) {
+                fnp = validateNumber(fnp.replace('+', ''), 2, 6);
+            } else {
+                fnp = null;
+            }
+            
+            const wounds = validateNumber(unit.wounds, 1, 50) || 1;
+            
+            toughnessField.value = toughness;
+            armorField.value = Math.min(armor, 6);
+            invulField.value = invul || '';
+            fnpField.value = fnp || '';
+            woundsField.value = wounds;
+        }
+        
+        function validateCalculation() {
+            const attackerUnit = document.getElementById('attacker-unit').value;
+            const attackerWeapon = document.getElementById('attacker-weapon').value;
+            const defenderUnit = document.getElementById('defender-unit').value;
+            
+            if (!attackerUnit || !attackerWeapon || !defenderUnit) {
+                return 'Please select attacking unit, weapon, and defending unit before calculating.';
+            }
+            
+            return null;
+        }
+        
+        function calculateCombat() {
+            const error = validateCalculation();
+            if (error) {
+                alert(error);
+                return;
+            }
+            
+            const btn = document.getElementById('calculate-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div> Calculating...';
+            
+            setTimeout(() => {
+                try {
+                    performCalculation();
+                } catch (error) {
+                    console.error('Calculation error:', error);
+                    alert('Error in calculation. Please check your inputs.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Calculate Combat Results';
+                }
+            }, 100);
+        }
+        
+        function performCalculation() {
+            const diceTable = { 2: 0.83, 3: 0.67, 4: 0.50, 5: 0.33, 6: 0.17 };
+            
+            const attacks = validateNumber(document.getElementById('attacks').value, 0.1, 50);
+            const ws = validateNumber(document.getElementById('ws').value, 2, 6);
+            const strength = validateNumber(document.getElementById('strength').value, 1, 20);
+            const ap = validateNumber(document.getElementById('ap').value, 0, 6);
+            const damage = validateNumber(document.getElementById('damage').value, 0.1, 20);
+            const attackerModels = validateNumber(document.getElementById('models').value, 1, 100);
+            
+            const toughness = validateNumber(document.getElementById('toughness').value, 1, 20);
+            const armorSave = validateNumber(document.getElementById('armor_save').value, 2, 6);
+            const invulSave = document.getElementById('invul_save').value ? 
+                validateNumber(document.getElementById('invul_save').value, 2, 6) : null;
+            const fnp = document.getElementById('fnp').value ? 
+                validateNumber(document.getElementById('fnp').value, 2, 6) : null;
+            const wounds = validateNumber(document.getElementById('wounds').value, 1, 50);
+            const defenderModels = validateNumber(document.getElementById('defender-models').value, 1, 200);
+            
+            if ([attacks, ws, strength, ap, damage, attackerModels, toughness, armorSave, wounds, defenderModels].some(v => v === null)) {
+                throw new Error('Invalid input values');
+            }
+            
+            const hitChance = diceTable[ws] || 0;
+            
+            let woundRoll = 4;
+            if (strength >= toughness * 2) woundRoll = 2;
+            else if (strength > toughness) woundRoll = 3;
+            else if (strength === toughness) woundRoll = 4;
+            else if (strength * 2 <= toughness) woundRoll = 6;
+            else woundRoll = 5;
+            
+            const woundChance = diceTable[woundRoll] || 0;
+            
+            let modifiedSave = armorSave + ap;
+            let saveChance = 0;
+            
+            if (invulSave && (!armorSave || invulSave < modifiedSave)) {
+                saveChance = diceTable[invulSave] || 0;
+            } else if (modifiedSave <= 6) {
+                saveChance = diceTable[modifiedSave] || 0;
+            }
+            
+            const failSaveChance = 1 - saveChance;
+            const fnpChance = fnp ? (diceTable[fnp] || 0) : 0;
+            const failFnpChance = 1 - fnpChance;
+            
+            const totalAttacks = attacks * attackerModels;
+            const expectedHits = totalAttacks * hitChance;
+            const expectedWounds = expectedHits * woundChance;
+            const expectedFailedSaves = expectedWounds * failSaveChance;
+            const expectedDamage = expectedFailedSaves * damage * failFnpChance;
+            
+            const totalWounds = defenderModels * wounds;
+            const expectedModelsKilled = Math.min(expectedDamage / wounds, defenderModels);
+            const survivalRate = Math.max(0, (totalWounds - expectedDamage) / totalWounds) * 100;
+            
+            displayResults({
+                totalAttacks, expectedHits, expectedWounds, expectedFailedSaves,
+                expectedDamage, expectedModelsKilled, survivalRate, attackerModels,
+                hitChance, woundChance, woundRoll, saveChance, fnpChance, fnp, ws
+            });
+        }
+        
+        function displayResults(results) {
+            const tableBody = document.getElementById('result-table-body');
+            const probabilityDiv = document.getElementById('probability-breakdown');
+            const totalAttacksValue = document.getElementById('total-attacks-value');
+            
+            tableBody.innerHTML = '';
+            probabilityDiv.innerHTML = '';
+            
+            totalAttacksValue.textContent = results.totalAttacks.toFixed(1) + ' (' + results.attackerModels + ' models)';
+            
+            const rows = [
+                ['Expected Hits', results.expectedHits.toFixed(2)],
+                ['Expected Wounds', results.expectedWounds.toFixed(2)],
+                ['Expected Failed Saves', results.expectedFailedSaves.toFixed(2)],
+                ['Expected Damage', results.expectedDamage.toFixed(2)],
+                ['Expected Models Killed', results.expectedModelsKilled.toFixed(2)],
+                ['Unit Survival Rate', results.survivalRate.toFixed(1) + '%']
+            ];
+            
+            rows.forEach(([label, value]) => {
+                const row = tableBody.insertRow();
+                const labelCell = row.insertCell(0);
+                const valueCell = row.insertCell(1);
+                
+                labelCell.textContent = label;
+                valueCell.textContent = value;
+                valueCell.className = 'value';
+                
+                labelCell.style.padding = '8px 12px';
+                labelCell.style.borderBottom = '1px solid var(--border)';
+                labelCell.style.fontSize = '12px';
+                
+                valueCell.style.padding = '8px 12px';
+                valueCell.style.borderBottom = '1px solid var(--border)';
+                valueCell.style.fontSize = '12px';
+                valueCell.style.fontWeight = '600';
+                valueCell.style.color = 'var(--accent-color)';
+            });
+            
+            const probCards = [
+                ['Hit Chance (' + results.ws + '+)', (results.hitChance * 100).toFixed(1) + '%'],
+                ['Wound Chance (' + results.woundRoll + '+)', (results.woundChance * 100).toFixed(1) + '%'],
+                ['Save Chance', (results.saveChance * 100).toFixed(1) + '%']
+            ];
+            
+            if (results.fnp) {
+                probCards.push(['Feel No Pain (' + results.fnp + '+)', (results.fnpChance * 100).toFixed(1) + '%']);
+            }
+            
+            probCards.forEach(([label, value]) => {
+                const card = document.createElement('div');
+                card.className = 'probability-card';
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'label';
+                labelDiv.textContent = label;
+                
+                const valueDiv = document.createElement('div');
+                valueDiv.className = 'value';
+                valueDiv.textContent = value;
+                
+                card.appendChild(labelDiv);
+                card.appendChild(valueDiv);
+                probabilityDiv.appendChild(card);
+            });
+            
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+    <div style="margin-top: 40px; padding: 20px 15px; border-top: 1px solid var(--border); text-align: center;">
+        <div style="max-width: 600px; margin: 0 auto;">
+            <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 15px;">
+                Questions, feedback, or suggestions? Feel free to reach out!
+            </div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 30px; flex-wrap: wrap;">
+                <a href="mailto:something_really_anonymous@proton.me" style="color: var(--accent-color); text-decoration: none; font-size: 12px; font-weight: 500;">
+                    Contact Me
+                </a>
+                <a href='https://ko-fi.com/J3J11HJ972' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+            </div>
+            <div style="color: var(--text-muted); font-size: 10px; margin-top: 10px;">
+                If you find this tool helpful, consider supporting continued development!
+            </div>
+        </div>
+    </div>
+</body>
+</html>
