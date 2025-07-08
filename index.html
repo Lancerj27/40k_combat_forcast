@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=2.0">
-    <title>Warhammer 40,000 Combat Calculator</title>
+    <title>Warhammer 40,000 Combat Forecast</title>
     <style>
         :root {
             /* Base Theme Colors */
@@ -242,6 +242,50 @@
             color: var(--accent-color);
         }
         
+        .result-table .stat-modifier {
+            font-size: 10px;
+            color: var(--text-secondary);
+            font-weight: normal;
+            margin-left: 6px;
+        }
+        
+        .formula-section {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .formula-header {
+            color: var(--accent-color);
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .formula-line {
+            color: var(--text-secondary);
+            font-size: 11px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .formula-variable {
+            color: var(--accent-light);
+            font-weight: 600;
+        }
+        
+        .formula-calculation {
+            color: var(--text-primary);
+            font-size: 11px;
+            line-height: 1.6;
+            margin-bottom: 5px;
+            font-family: 'Courier New', monospace;
+        }
+        
         .probability-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -340,6 +384,11 @@
             }
         }
         
+        .stat-modified {
+            background-color: rgba(204, 51, 51, 0.1);
+            border: 1px solid var(--accent-color);
+        }
+        
         .spinner {
             display: inline-block;
             width: 16px;
@@ -358,7 +407,7 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <h1>40K Combat Calculator</h1>
+            <h1>40K Combat Forecast</h1>
         </div>
     </div>
 
@@ -462,6 +511,25 @@
                                         <label for="models">Models</label>
                                         <input type="number" id="models" class="form-control" min="1" max="100" value="5">
                                     </div>
+                                    <div class="form-group">
+                                        <label for="weapon-range">Weapon Range</label>
+                                        <input type="number" id="weapon-range" class="form-control" min="0" max="120" value="24" placeholder="Max Range" onchange="updateTargetRange()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="target-range">Target Distance</label>
+                                        <input type="number" id="target-range" class="form-control" min="0" max="120" value="24" placeholder="Distance to Target">
+                                    </div>
+                                </div>
+                                <div id="conditional-keywords-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: none;">
+                                    <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 8px; text-transform: uppercase; font-weight: 500;">
+                                        Conditional Keywords
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr; gap: 6px;">
+                                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 11px;">
+                                            <input type="checkbox" id="remained-stationary" style="margin-right: 6px; cursor: pointer;">
+                                            <span>Remained Stationary (Heavy: +1 to hit)</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -497,6 +565,12 @@
                                         <label for="defender-models">Models</label>
                                         <input type="number" id="defender-models" class="form-control" min="1" max="200" value="5">
                                     </div>
+                                    <div class="form-group" style="grid-column: span 2;">
+                                        <label style="display: flex; align-items: center; cursor: pointer;">
+                                            <input type="checkbox" id="defender-cover" style="margin-right: 8px; cursor: pointer;">
+                                            <span>Benefit of Cover (+1 to saves vs ranged)</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -519,6 +593,13 @@
                         <tbody id="result-table-body">
                         </tbody>
                     </table>
+
+                    <!-- Combat Formula Display -->
+                    <div class="formula-section" id="formula-display">
+                        <div class="formula-header">Combat Formula</div>
+                        <div class="formula-line">Expected Damage = <span class="formula-variable">Attacks</span> × <span class="formula-variable">Models</span> × <span class="formula-variable">Hit%</span> × <span class="formula-variable">Wound%</span> × <span class="formula-variable">FailedSave%</span> × <span class="formula-variable">Damage</span> × <span class="formula-variable">FailedFNP%</span></div>
+                        <div class="formula-calculation" id="formula-calculation">Expected Damage = --</div>
+                    </div>
 
                     <div class="section-header" style="margin: 15px 0 10px 0; background: none; padding: 0; border: none; color: var(--accent-color);">
                         Probability Breakdown
@@ -553,6 +634,24 @@
         let factionMap = new Map();
         let selectedAttackerFaction = '';
         let selectedDefenderFaction = '';
+        let isCalculating = false;
+        
+        // Loading state manager
+        const LoadingState = {
+            isLoading: false,
+            errors: [],
+            
+            setLoading(loading) {
+                this.isLoading = loading;
+                document.getElementById('loading-section').style.display = loading ? 'block' : 'none';
+                document.getElementById('main-content').style.display = loading ? 'none' : 'block';
+            },
+            
+            addError(error) {
+                this.errors.push(error);
+                showError(error);
+            }
+        };
         
         // Input sanitization
         function sanitizeText(text) {
@@ -593,6 +692,11 @@
             errorDiv.className = 'error-message';
             errorDiv.textContent = sanitizeText(message);
             container.insertBefore(errorDiv, container.firstChild);
+            
+            // Auto-remove error after 5 seconds
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
         }
         
         // Load CSV data safely
@@ -604,11 +708,20 @@
                 }
                 const text = await response.text();
                 
+                // Validate response
+                if (!text || text.trim().length === 0) {
+                    throw new Error(`Empty file: ${path}`);
+                }
+                
                 return Papa.parse(text, {
                     delimiter: '|',
                     header: false,
                     dynamicTyping: false,
-                    skipEmptyLines: true
+                    skipEmptyLines: true,
+                    error: function(error) {
+                        console.error('Parse error:', error);
+                        throw new Error(`Failed to parse ${path}: ${error.message}`);
+                    }
                 });
             } catch (error) {
                 console.error('CSV loading error:', error);
@@ -619,6 +732,8 @@
         // Initialize application
         async function initializeApp() {
             try {
+                LoadingState.setLoading(true);
+                
                 await Promise.all([
                     loadDatasheets(),
                     loadFactions(),
@@ -629,13 +744,14 @@
                 
                 buildFactionMap();
                 populateFactionDropdown();
+                setupInputValidation();
                 
-                document.getElementById('loading-section').style.display = 'none';
-                document.getElementById('main-content').style.display = 'block';
+                LoadingState.setLoading(false);
                 
             } catch (error) {
-                document.getElementById('loading-section').textContent = 'Error loading game data. Please refresh the page.';
+                document.getElementById('loading-section').innerHTML = 'Error loading game data. Please refresh the page.<br>' + error.message;
                 console.error('Initialization error:', error);
+                LoadingState.addError(error.message);
             }
         }
         
@@ -941,6 +1057,70 @@
             wsField.value = 3;
         }
         
+        function parseWeaponKeywords(abilitiesText) {
+            if (!abilitiesText || abilitiesText === '-' || abilitiesText === '') return [];
+            
+            const keywords = [];
+            const keywordData = {};
+            
+            // Look for keywords in href links like: <a href="/wh40k10ed/the-rules/core-rules/#Assault">assault</a>
+            const keywordRegex = /<a\s+href="[^"]*"[^>]*>([^<]+)<\/a>/gi;
+            let match;
+            
+            // Extract keywords from anchor tags
+            while ((match = keywordRegex.exec(abilitiesText)) !== null) {
+                const keyword = match[1].trim().toLowerCase();
+                if (keyword && !keywords.includes(keyword)) {
+                    keywords.push(keyword);
+                }
+            }
+            
+            // Look for Anti-X abilities with values (e.g., "anti-vehicle 3+")
+            const antiRegex = /anti-(\w+)\s*(\d+)\+/gi;
+            while ((match = antiRegex.exec(abilitiesText)) !== null) {
+                const antiType = `anti-${match[1].toLowerCase()}`;
+                const antiValue = parseInt(match[2]);
+                if (!keywords.includes(antiType)) {
+                    keywords.push(antiType);
+                }
+                keywordData[antiType] = antiValue;
+            }
+            
+            // Look for abilities with numeric values
+            const valueRegex = /(melta|rapid fire|conversion|sustained hits?|devastating wounds?)\s*(\d+)?/gi;
+            while ((match = valueRegex.exec(abilitiesText)) !== null) {
+                const ability = match[1].toLowerCase().replace(' ', '-');
+                const value = match[2] ? parseInt(match[2]) : 1;
+                if (!keywords.includes(ability)) {
+                    keywords.push(ability);
+                }
+                keywordData[ability] = value;
+            }
+            
+            // Look for keywords without numeric values
+            const simpleKeywords = ['blast', 'torrent', 'twin-linked', 'heavy', 'lethal-hits', 'lethal hits', 
+                                    'hazardous', 'ignores-cover', 'ignores cover', 'devastating-wounds', 
+                                    'devastating wounds'];
+            const lowerText = abilitiesText.toLowerCase();
+            simpleKeywords.forEach(keyword => {
+                if (lowerText.includes(keyword) && !keywords.includes(keyword.replace(' ', '-'))) {
+                    keywords.push(keyword.replace(' ', '-'));
+                }
+            });
+            
+            // Store keyword data globally for use in calculations
+            window.currentWeaponKeywordData = keywordData;
+            
+            return keywords;
+        }
+        
+        function updateTargetRange() {
+            const weaponRange = document.getElementById('weapon-range').value;
+            const targetRangeField = document.getElementById('target-range');
+            // Set target range to weapon range by default
+            targetRangeField.value = weaponRange;
+        }
+        
         function loadAttackerWeapon() {
             const weaponIndexStr = document.getElementById('attacker-weapon').value;
             const weaponIndex = validateNumber(weaponIndexStr, 0, weaponsData.length - 1);
@@ -955,6 +1135,8 @@
             const apField = document.getElementById('ap');
             const damageField = document.getElementById('damage');
             const wsField = document.getElementById('ws');
+            const rangeField = document.getElementById('weapon-range');
+            const targetRangeField = document.getElementById('target-range');
             
             // Parse attacks safely
             let attacks = weapon.attacks;
@@ -982,11 +1164,45 @@
             
             const ws = validateNumber(weapon.ws_bs, 2, 6) || 3;
             
+            // Parse range
+            let range = weapon.range;
+            if (range === 'Melee') {
+                range = 1;
+            } else {
+                range = validateNumber(range, 0, 120) || 24;
+            }
+            
             attacksField.value = attacks;
             strengthField.value = strength;
             apField.value = ap;
             damageField.value = damage;
             wsField.value = ws;
+            rangeField.value = range;
+            
+            // Set target range to weapon range by default
+            targetRangeField.value = range;
+            
+            // Parse and display weapon keywords
+            const keywords = parseWeaponKeywords(weapon.abilities);
+            displayWeaponKeywords(keywords);
+            
+            // Store keywords for calculation
+            window.currentWeaponKeywords = keywords;
+            
+            // Update conditional keyword visibility
+            updateConditionalKeywords(keywords);
+        }
+        
+        function updateConditionalKeywords(keywords) {
+            const conditionalSection = document.getElementById('conditional-keywords-section');
+            
+            // Show/hide conditional keyword checkboxes based on weapon keywords
+            if (keywords.includes('heavy')) {
+                conditionalSection.style.display = 'block';
+            } else {
+                conditionalSection.style.display = 'none';
+                document.getElementById('remained-stationary').checked = false;
+            }
         }
         
         function loadDefenderUnit() {
@@ -1021,27 +1237,92 @@
                 armor = validateNumber(armor, 2, 6) || 6;
             }
             
-            let invul = unit.invul_save;
-            if (invul && invul !== '-' && invul.includes('+')) {
-                invul = validateNumber(invul.replace('+', ''), 2, 6);
-            } else {
-                invul = null;
+            // Fixed invulnerable save parsing - it's in the wounds column (index 6)
+            let invul = null;
+            if (unit.wounds && unit.wounds !== '-') {
+                // Look for number in the wounds field for invul saves
+                const invulMatch = unit.wounds.match(/(\d+)/);
+                if (invulMatch) {
+                    invul = validateNumber(invulMatch[1], 2, 6);
+                }
             }
             
-            let fnp = unit.feel_no_pain;
-            if (fnp && fnp !== '-' && fnp.includes('+')) {
-                fnp = validateNumber(fnp.replace('+', ''), 2, 6);
-            } else {
-                fnp = null;
+            // Feel no pain parsing - check feel_no_pain field for FNP
+            let fnp = null;
+            if (unit.feel_no_pain && unit.feel_no_pain !== '-') {
+                const fnpMatch = unit.feel_no_pain.match(/(\d+)\+/);
+                if (fnpMatch) {
+                    fnp = validateNumber(fnpMatch[1], 2, 6);
+                }
             }
             
-            const wounds = validateNumber(unit.wounds, 1, 50) || 1;
+            // Actual wounds value is in the objective_control field (index 8)
+            const wounds = validateNumber(unit.objective_control, 1, 50) || 1;
             
             toughnessField.value = toughness;
             armorField.value = Math.min(armor, 6);
             invulField.value = invul || '';
             fnpField.value = fnp || '';
             woundsField.value = wounds;
+        }
+        
+        function displayWeaponKeywords(keywords) {
+            let keywordsDisplay = document.getElementById('weapon-keywords-display');
+            
+            if (!keywordsDisplay) {
+                // Create keywords display if it doesn't exist
+                keywordsDisplay = document.createElement('div');
+                keywordsDisplay.id = 'weapon-keywords-display';
+                keywordsDisplay.style.marginTop = '12px';
+                
+                const attackerCard = document.querySelector('.unit-card:first-of-type .unit-card-body');
+                if (attackerCard) {
+                    attackerCard.appendChild(keywordsDisplay);
+                }
+            }
+            
+            if (keywords.length > 0) {
+                const keywordData = window.currentWeaponKeywordData || {};
+                
+                keywordsDisplay.innerHTML = `
+                    <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 6px; text-transform: uppercase; font-weight: 500;">
+                        Weapon Keywords
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        ${keywords.map(keyword => {
+                            let displayText = sanitizeText(keyword);
+                            
+                            // Add numeric values to keywords that have them
+                            if (keyword.startsWith('anti-') && keywordData[keyword]) {
+                                displayText += ` ${keywordData[keyword]}+`;
+                            } else if ((keyword === 'melta' || keyword === 'rapid-fire' || keyword === 'sustained-hits') && keywordData[keyword]) {
+                                displayText += ` ${keywordData[keyword]}`;
+                            }
+                            
+                            // Add range indicators for range-dependent keywords
+                            let rangeIndicator = '';
+                            if (keyword === 'melta' || keyword === 'rapid-fire') {
+                                rangeIndicator = ' 📏½';
+                            } else if (keyword === 'conversion') {
+                                rangeIndicator = ' 📏12"+';
+                            }
+                            
+                            return `
+                                <span style="background-color: var(--bg-primary); border: 1px solid var(--accent-color); 
+                                             color: var(--accent-color); padding: 3px 10px; border-radius: 3px; 
+                                             font-size: 10px; font-weight: 600; text-transform: uppercase;">
+                                    ${displayText}${rangeIndicator}
+                                </span>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 10px; margin-top: 6px;">
+                        📏½ = Half range dependent | 📏12"+ = 12" or more required
+                    </div>
+                `;
+            } else {
+                keywordsDisplay.innerHTML = '';
+            }
         }
         
         function validateCalculation() {
@@ -1057,12 +1338,15 @@
         }
         
         function calculateCombat() {
+            if (isCalculating) return;
+            
             const error = validateCalculation();
             if (error) {
                 alert(error);
                 return;
             }
             
+            isCalculating = true;
             const btn = document.getElementById('calculate-btn');
             btn.disabled = true;
             btn.innerHTML = '<div class="spinner"></div> Calculating...';
@@ -1076,6 +1360,7 @@
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = 'Calculate Combat Results';
+                    isCalculating = false;
                 }
             }, 100);
         }
@@ -1083,11 +1368,11 @@
         function performCalculation() {
             const diceTable = { 2: 0.83, 3: 0.67, 4: 0.50, 5: 0.33, 6: 0.17 };
             
-            const attacks = validateNumber(document.getElementById('attacks').value, 0.1, 50);
+            let attacks = validateNumber(document.getElementById('attacks').value, 0.1, 50);
             const ws = validateNumber(document.getElementById('ws').value, 2, 6);
             const strength = validateNumber(document.getElementById('strength').value, 1, 20);
             const ap = validateNumber(document.getElementById('ap').value, 0, 6);
-            const damage = validateNumber(document.getElementById('damage').value, 0.1, 20);
+            let damage = validateNumber(document.getElementById('damage').value, 0.1, 20);
             const attackerModels = validateNumber(document.getElementById('models').value, 1, 100);
             
             const toughness = validateNumber(document.getElementById('toughness').value, 1, 20);
@@ -1099,12 +1384,75 @@
             const wounds = validateNumber(document.getElementById('wounds').value, 1, 50);
             const defenderModels = validateNumber(document.getElementById('defender-models').value, 1, 200);
             
+            // Range values
+            const weaponRange = validateNumber(document.getElementById('weapon-range').value, 0, 120) || 24;
+            const targetRange = validateNumber(document.getElementById('target-range').value, 0, 120) || weaponRange;
+            
             if ([attacks, ws, strength, ap, damage, attackerModels, toughness, armorSave, wounds, defenderModels].some(v => v === null)) {
                 throw new Error('Invalid input values');
             }
             
-            const hitChance = diceTable[ws] || 0;
+            // Get weapon keywords
+            const keywords = window.currentWeaponKeywords || [];
+            const keywordData = window.currentWeaponKeywordData || {};
             
+            // Check if weapon is ranged
+            const isRangedWeapon = weaponRange > 1; // Melee weapons have range 1
+            
+            // Check for cover
+            const hasCover = document.getElementById('defender-cover').checked;
+            
+            // Track modifications for display
+            const baseAttacks = attacks;
+            const baseDamage = damage;
+            let modificationNotes = [];
+            
+            // Apply Blast keyword
+            if (keywords.includes('blast')) {
+                const extraShots = Math.floor(defenderModels / 5);
+                if (extraShots > 0) {
+                    attacks += extraShots;
+                    modificationNotes.push(`Blast: +${extraShots} attacks`);
+                }
+            }
+            
+            // Apply Rapid Fire keyword
+            if (keywords.includes('rapid-fire') && targetRange <= weaponRange / 2) {
+                const rapidFireValue = keywordData['rapid-fire'] || 1;
+                attacks += rapidFireValue;
+                modificationNotes.push(`Rapid Fire: +${rapidFireValue} attacks`);
+            }
+            
+            // Apply Melta keyword
+            if (keywords.includes('melta') && targetRange <= weaponRange / 2) {
+                const meltaValue = keywordData['melta'] || 1;
+                damage += meltaValue;
+                modificationNotes.push(`Melta: +${meltaValue} damage`);
+            }
+            
+            // Calculate base hit chance
+            let hitChance = diceTable[ws] || 0;
+            let hitModified = false;
+            
+            // Apply Heavy keyword (check if unit remained stationary)
+            let remainedStationary = document.getElementById('remained-stationary').checked;
+            if (keywords.includes('heavy') && remainedStationary) {
+                // Heavy gives +1 to hit, which improves the roll needed by 1
+                const improvedWS = Math.max(2, ws - 1);
+                hitChance = diceTable[improvedWS] || hitChance;
+                hitModified = true;
+                modificationNotes.push('Heavy: +1 to hit (Remained Stationary)');
+            }
+            // Don't add any note if Heavy is not active
+            
+            // Apply Torrent keyword
+            if (keywords.includes('torrent')) {
+                hitChance = 1.0; // Automatic hits
+                hitModified = true;
+                modificationNotes.push('Torrent: auto-hit');
+            }
+            
+            // Calculate wound roll needed
             let woundRoll = 4;
             if (strength >= toughness * 2) woundRoll = 2;
             else if (strength > toughness) woundRoll = 3;
@@ -1112,35 +1460,155 @@
             else if (strength * 2 <= toughness) woundRoll = 6;
             else woundRoll = 5;
             
-            const woundChance = diceTable[woundRoll] || 0;
+            let woundChance = diceTable[woundRoll] || 0;
+            let woundModified = false;
             
+            // Apply Anti-X keyword for critical wounds
+            let criticalWoundOn = 6; // Default critical wound
+            let criticalWoundChance = 0;
+            for (const keyword of keywords) {
+                if (keyword.startsWith('anti-')) {
+                    const antiValue = keywordData[keyword];
+                    if (antiValue && antiValue <= woundRoll) {
+                        // Anti-X gives automatic wounds on X+
+                        criticalWoundChance = diceTable[antiValue] || 0;
+                        modificationNotes.push(`${keyword}: Critical wounds on ${antiValue}+`);
+                    }
+                }
+            }
+            
+            // Apply Twin-linked (re-roll wounds)
+            if (keywords.includes('twin-linked')) {
+                // Re-rolling failures increases success rate
+                woundChance = woundChance + (1 - woundChance) * woundChance;
+                woundModified = true;
+                modificationNotes.push('Twin-linked: re-roll wounds');
+            }
+            
+            // Apply Lethal Hits (6s to hit auto-wound)
+            let lethalHitsChance = 0;
+            if (keywords.includes('lethal-hits') || keywords.includes('lethal hits')) {
+                lethalHitsChance = 1/6; // Natural 6s
+                modificationNotes.push('Lethal Hits: 6s auto-wound');
+            }
+            
+            // Apply Conversion (Critical hits on 4+ at 12" or more)
+            let criticalHitChance = 1/6; // Default critical hit on 6
+            if (keywords.includes('conversion') && targetRange >= 12) {
+                criticalHitChance = 0.5; // 4+ becomes critical
+                if (keywords.includes('lethal-hits') || keywords.includes('lethal hits')) {
+                    lethalHitsChance = 0.5; // Conversion makes lethal hits trigger on 4+
+                    modificationNotes.push('Conversion: Critical/Lethal hits on 4+');
+                }
+            }
+            
+            // Calculate saves
             let modifiedSave = armorSave + ap;
+            let baseSave = modifiedSave;
+            let saveModifiers = [];
+            
+            // Apply cover bonus (only for ranged weapons and if not ignored)
+            if (hasCover && isRangedWeapon && !(keywords.includes('ignores-cover') || keywords.includes('ignores cover'))) {
+                modifiedSave = Math.max(2, modifiedSave - 1); // -1 to save roll = better save
+                saveModifiers.push('Cover: +1 save');
+            } else if (hasCover && isRangedWeapon && (keywords.includes('ignores-cover') || keywords.includes('ignores cover'))) {
+                saveModifiers.push('Cover: Ignored');
+            }
+            
             let saveChance = 0;
             
+            // Check if using invulnerable save
             if (invulSave && (!armorSave || invulSave < modifiedSave)) {
                 saveChance = diceTable[invulSave] || 0;
+                saveModifiers.push('Using Invulnerable Save');
             } else if (modifiedSave <= 6) {
                 saveChance = diceTable[modifiedSave] || 0;
+            }
+            
+            // Apply Ignores Cover notification
+            if (keywords.includes('ignores-cover') || keywords.includes('ignores cover')) {
+                modificationNotes.push('Ignores Cover');
+            }
+            
+            // Apply Devastating Wounds (critical wounds become mortal wounds)
+            let devastatingWounds = false;
+            if (keywords.includes('devastating-wounds') || keywords.includes('devastating wounds')) {
+                devastatingWounds = true;
+                modificationNotes.push('Devastating Wounds: criticals bypass saves');
             }
             
             const failSaveChance = 1 - saveChance;
             const fnpChance = fnp ? (diceTable[fnp] || 0) : 0;
             const failFnpChance = 1 - fnpChance;
             
+            // Calculate final damage
             const totalAttacks = attacks * attackerModels;
-            const expectedHits = totalAttacks * hitChance;
-            const expectedWounds = expectedHits * woundChance;
-            const expectedFailedSaves = expectedWounds * failSaveChance;
-            const expectedDamage = expectedFailedSaves * damage * failFnpChance;
+            
+            // Account for various hit/wound mechanics
+            const normalHits = totalAttacks * hitChance * (1 - lethalHitsChance);
+            const lethalHits = totalAttacks * hitChance * lethalHitsChance;
+            
+            // Calculate wounds including critical wounds
+            let expectedWounds = normalHits * woundChance + lethalHits;
+            
+            // Add critical wounds from Anti-X
+            if (criticalWoundChance > 0) {
+                const criticalWounds = normalHits * criticalWoundChance;
+                expectedWounds += criticalWounds * (1 - woundChance); // Add the extra wounds from criticals
+            }
+            
+            // Calculate damage based on devastating wounds
+            let expectedFailedSaves = expectedWounds * failSaveChance;
+            let expectedDamage = expectedFailedSaves * damage * failFnpChance;
+            
+            // If devastating wounds, critical wounds bypass saves entirely
+            if (devastatingWounds && criticalWoundChance > 0) {
+                const criticalDamage = normalHits * criticalWoundChance * damage;
+                expectedDamage += criticalDamage; // Add mortal wounds from criticals
+            }
             
             const totalWounds = defenderModels * wounds;
             const expectedModelsKilled = Math.min(expectedDamage / wounds, defenderModels);
             const survivalRate = Math.max(0, (totalWounds - expectedDamage) / totalWounds) * 100;
             
+            // Check for Hazardous
+            let hazardousWarning = null;
+            if (keywords.includes('hazardous')) {
+                const expectedHazardousLosses = attackerModels * (1/6);
+                hazardousWarning = `Warning: Hazardous weapon - expect ${expectedHazardousLosses.toFixed(1)} casualties`;
+                modificationNotes.push('Hazardous: 1s cause casualties');
+            }
+            
+            // Store additional data for display
+            const additionalInfo = {
+                modifiedAttacks: attacks,
+                modifiedDamage: damage,
+                keywords: keywords,
+                keywordData: keywordData,
+                targetRange: targetRange,
+                weaponRange: weaponRange,
+                lethalHitsChance: lethalHitsChance,
+                defenderModels: defenderModels,
+                hitModified: hitModified,
+                woundModified: woundModified,
+                criticalWoundChance: criticalWoundChance,
+                devastatingWounds: devastatingWounds,
+                modificationNotes: modificationNotes,
+                hazardousWarning: hazardousWarning,
+                baseAttacks: baseAttacks,
+                baseDamage: baseDamage,
+                hasCover: hasCover,
+                isRangedWeapon: isRangedWeapon,
+                saveModifiers: saveModifiers,
+                baseSave: baseSave,
+                modifiedSave: modifiedSave
+            };
+            
             displayResults({
-                totalAttacks, expectedHits, expectedWounds, expectedFailedSaves,
+                totalAttacks, expectedHits: totalAttacks * hitChance, expectedWounds, expectedFailedSaves,
                 expectedDamage, expectedModelsKilled, survivalRate, attackerModels,
-                hitChance, woundChance, woundRoll, saveChance, fnpChance, fnp, ws
+                hitChance, woundChance, woundRoll, saveChance, fnpChance, fnp, ws,
+                ...additionalInfo
             });
         }
         
@@ -1148,11 +1616,78 @@
             const tableBody = document.getElementById('result-table-body');
             const probabilityDiv = document.getElementById('probability-breakdown');
             const totalAttacksValue = document.getElementById('total-attacks-value');
+            const formulaCalculation = document.getElementById('formula-calculation');
             
             tableBody.innerHTML = '';
             probabilityDiv.innerHTML = '';
             
-            totalAttacksValue.textContent = results.totalAttacks.toFixed(1) + ' (' + results.attackerModels + ' models)';
+            // Show modified attacks if keywords affected them
+            let attacksDisplay = results.totalAttacks.toFixed(1) + ' (' + results.attackerModels + ' models)';
+            if (results.keywords && results.keywords.length > 0) {
+                const baseAttacks = validateNumber(document.getElementById('attacks').value, 0.1, 50);
+                if (results.modifiedAttacks !== baseAttacks) {
+                    attacksDisplay += ` [Modified from ${(baseAttacks * results.attackerModels).toFixed(1)}]`;
+                }
+            }
+            totalAttacksValue.textContent = attacksDisplay;
+            
+            // Update formula with actual values and show modifications
+            const baseAttacks = parseFloat(document.getElementById('attacks').value);
+            const baseDamage = parseFloat(document.getElementById('damage').value);
+            const attacks = results.modifiedAttacks || baseAttacks;
+            const models = document.getElementById('models').value;
+            const hitDecimal = (results.hitChance).toFixed(3);
+            const woundDecimal = (results.woundChance).toFixed(3);
+            const saveDecimal = ((1 - results.saveChance)).toFixed(3);
+            const damage = results.modifiedDamage || baseDamage;
+            const fnpDecimal = results.fnp ? ((1 - results.fnpChance)).toFixed(3) : '1.000';
+            
+            // Build formula string with modifications shown
+            let attacksStr = attacks.toFixed(1);
+            if (attacks !== baseAttacks) {
+                attacksStr = `${attacks.toFixed(1)} <span style="color: var(--text-secondary); font-size: 10px;">(${baseAttacks} +${(attacks - baseAttacks).toFixed(1)})</span>`;
+            }
+            
+            let damageStr = damage.toFixed(1);
+            if (damage !== baseDamage) {
+                damageStr = `${damage.toFixed(1)} <span style="color: var(--text-secondary); font-size: 10px;">(${baseDamage} +${(damage - baseDamage).toFixed(1)})</span>`;
+            }
+            
+            // Check if hit chance was modified by Heavy
+            let hitStr = hitDecimal;
+            if (results.keywords && results.keywords.includes('heavy')) {
+                const baseWS = validateNumber(document.getElementById('ws').value, 2, 6);
+                const baseHitChance = { 2: 0.83, 3: 0.67, 4: 0.50, 5: 0.33, 6: 0.17 }[baseWS] || 0;
+                if (results.hitChance > baseHitChance) {
+                    hitStr = `${hitDecimal} <span style="color: var(--text-secondary); font-size: 10px;">(+1 to hit)</span>`;
+                }
+            } else if (results.keywords && results.keywords.includes('torrent')) {
+                hitStr = `${hitDecimal} <span style="color: var(--text-secondary); font-size: 10px;">(auto-hit)</span>`;
+            }
+            
+            // Check if wound chance was modified by Twin-linked or Anti-X
+            let woundStr = woundDecimal;
+            if (results.keywords && results.keywords.includes('twin-linked')) {
+                woundStr = `${woundDecimal} <span style="color: var(--text-secondary); font-size: 10px;">(re-rolls)</span>`;
+            }
+            if (results.criticalWoundChance > 0) {
+                const critNote = results.keywords.find(k => k.startsWith('anti-')) || 'criticals';
+                woundStr += ` <span style="color: var(--text-secondary); font-size: 10px;">(+${critNote})</span>`;
+            }
+            
+            // Check if saves are bypassed by Devastating Wounds
+            let saveStr = saveDecimal;
+            if (results.devastatingWounds && results.criticalWoundChance > 0) {
+                saveStr = `${saveDecimal} <span style="color: var(--text-secondary); font-size: 10px;">(Devastating Wounds bypass)</span>`;
+            } else if (results.hasCover && results.isRangedWeapon) {
+                if (results.keywords && (results.keywords.includes('ignores-cover') || results.keywords.includes('ignores cover'))) {
+                    saveStr = `${saveDecimal} <span style="color: var(--text-secondary); font-size: 10px;">(Ignores Cover)</span>`;
+                } else if (results.baseSave !== results.modifiedSave) {
+                    saveStr = `${saveDecimal} <span style="color: var(--text-secondary); font-size: 10px;">(Cover +1)</span>`;
+                }
+            }
+            
+            formulaCalculation.innerHTML = `<span class="formula-variable">${results.expectedDamage.toFixed(2)}</span> = <span class="formula-variable">${attacksStr}</span> × <span class="formula-variable">${models}</span> × <span class="formula-variable">${hitStr}</span> × <span class="formula-variable">${woundStr}</span> × <span class="formula-variable">${saveStr}</span> × <span class="formula-variable">${damageStr}</span> × <span class="formula-variable">${fnpDecimal}</span>`;
             
             const rows = [
                 ['Expected Hits', results.expectedHits.toFixed(2)],
@@ -1163,13 +1698,45 @@
                 ['Unit Survival Rate', results.survivalRate.toFixed(1) + '%']
             ];
             
+            // Add modified stats information to the appropriate rows
+            if (results.keywords && results.keywords.length > 0) {
+                const baseAttacks = parseFloat(document.getElementById('attacks').value);
+                const baseDamage = parseFloat(document.getElementById('damage').value);
+                
+                // Show if attacks were modified
+                if (results.modifiedAttacks !== baseAttacks) {
+                    const modifier = results.modifiedAttacks - baseAttacks;
+                    let modSource = '';
+                    if (results.keywords.includes('blast')) modSource = 'Blast';
+                    else if (results.keywords.includes('rapid-fire')) modSource = 'Rapid Fire';
+                    rows[0][1] += ` <span class="stat-modifier">(Base: ${(baseAttacks * results.attackerModels * results.hitChance).toFixed(2)} - ${modSource})</span>`;
+                }
+                
+                // Show if damage was modified
+                if (results.modifiedDamage !== baseDamage) {
+                    const baseDamageResult = (results.expectedFailedSaves * baseDamage * (results.fnp ? (1 - results.fnpChance) : 1)).toFixed(2);
+                    rows[3][1] += ` <span class="stat-modifier">(Base: ${baseDamageResult} - Melta)</span>`;
+                }
+            }
+            
+            // Show if saves were modified by cover
+            if (results.saveModifiers && results.saveModifiers.includes('Cover: +1 save')) {
+                // Calculate what failed saves would have been without cover
+                const baseArmor = validateNumber(document.getElementById('armor_save').value, 2, 6);
+                const ap = validateNumber(document.getElementById('ap').value, 0, 6);
+                const baseSaveRoll = Math.min(baseArmor + ap, 7);
+                const baseSaveChance = baseSaveRoll <= 6 ? { 2: 0.83, 3: 0.67, 4: 0.50, 5: 0.33, 6: 0.17 }[baseSaveRoll] || 0 : 0;
+                const baseFailedSaves = (results.expectedWounds * (1 - baseSaveChance)).toFixed(2);
+                rows[2][1] += ` <span class="stat-modifier">(Base: ${baseFailedSaves} - Cover)</span>`;
+            }
+            
             rows.forEach(([label, value]) => {
                 const row = tableBody.insertRow();
                 const labelCell = row.insertCell(0);
                 const valueCell = row.insertCell(1);
                 
                 labelCell.textContent = label;
-                valueCell.textContent = value;
+                valueCell.innerHTML = value; // Changed to innerHTML to support stat modifiers
                 valueCell.className = 'value';
                 
                 labelCell.style.padding = '8px 12px';
@@ -1189,8 +1756,120 @@
                 ['Save Chance', (results.saveChance * 100).toFixed(1) + '%']
             ];
             
+            // Add modified stat indicators to probability cards
+            if (results.keywords && results.keywords.length > 0) {
+                // Modify hit chance card if affected by keywords
+                if (results.keywords.includes('heavy')) {
+                    const remainedStationary = document.getElementById('remained-stationary').checked;
+                    const baseWS = validateNumber(document.getElementById('ws').value, 2, 6);
+                    const baseHitChance = { 2: 0.83, 3: 0.67, 4: 0.50, 5: 0.33, 6: 0.17 }[baseWS] || 0;
+                    if (remainedStationary && results.hitChance > baseHitChance) {
+                        probCards[0] = ['Hit Chance (' + results.ws + '+) [Heavy +1]', (results.hitChance * 100).toFixed(1) + '%'];
+                    }
+                    // Don't show anything if Heavy is not active
+                } else if (results.keywords.includes('torrent')) {
+                    probCards[0] = ['Hit Chance [Torrent]', '100.0%'];
+                }
+                
+                // Modify wound chance card if twin-linked
+                if (results.keywords.includes('twin-linked')) {
+                    probCards[1] = ['Wound Chance (' + results.woundRoll + '+) [Re-rolls]', (results.woundChance * 100).toFixed(1) + '%'];
+                }
+            }
+            
+            // Modify save chance card if affected by cover
+            if (results.saveModifiers && results.saveModifiers.length > 0) {
+                let saveLabel = 'Save Chance';
+                if (results.saveModifiers.includes('Cover: +1 save')) {
+                    saveLabel += ' [Cover +1]';
+                } else if (results.saveModifiers.includes('Cover: Ignored')) {
+                    saveLabel += ' [Cover Ignored]';
+                }
+                if (results.saveModifiers.includes('Using Invulnerable Save')) {
+                    saveLabel += ' [Invul]';
+                }
+                probCards[2] = [saveLabel, (results.saveChance * 100).toFixed(1) + '%'];
+            }
+            
             if (results.fnp) {
                 probCards.push(['Feel No Pain (' + results.fnp + '+)', (results.fnpChance * 100).toFixed(1) + '%']);
+            }
+            
+            // Add active keyword effects with all keywords shown
+            if (results.keywords && results.keywords.length > 0) {
+                const activeEffects = [];
+                
+                // Only show keywords that are actually affecting the calculation
+                results.keywords.forEach(keyword => {
+                    if (keyword === 'blast' && results.modifiedAttacks > results.baseAttacks) {
+                        activeEffects.push(`Blast (+${Math.floor(results.defenderModels / 5)} shots)`);
+                    } else if (keyword === 'rapid-fire' && results.targetRange <= results.weaponRange / 2) {
+                        const rfValue = results.keywordData['rapid-fire'] || 1;
+                        activeEffects.push(`Rapid Fire (+${rfValue} @ half range)`);
+                    } else if (keyword === 'melta' && results.targetRange <= results.weaponRange / 2) {
+                        const meltaValue = results.keywordData['melta'] || 1;
+                        activeEffects.push(`Melta (+${meltaValue} dmg @ half range)`);
+                    } else if (keyword === 'torrent') {
+                        activeEffects.push('Torrent (auto-hit)');
+                    } else if (keyword === 'twin-linked') {
+                        activeEffects.push('Twin-linked (re-roll wounds)');
+                    } else if (keyword === 'heavy') {
+                        const remainedStationary = document.getElementById('remained-stationary').checked;
+                        if (remainedStationary) {
+                            activeEffects.push('Heavy (+1 to hit - stationary)');
+                        }
+                    } else if (keyword === 'lethal-hits' || keyword === 'lethal hits') {
+                        if (results.lethalHitsChance > 1/6) {
+                            activeEffects.push(`Lethal Hits (${(results.lethalHitsChance * 100).toFixed(0)}% - Conversion boost)`);
+                        } else {
+                            activeEffects.push('Lethal Hits (6s auto-wound)');
+                        }
+                    } else if (keyword === 'conversion' && results.targetRange >= 12) {
+                        activeEffects.push('Conversion (crits on 4+ @ 12"+)');
+                    } else if (keyword.startsWith('anti-')) {
+                        const antiValue = results.keywordData[keyword];
+                        if (antiValue) {
+                            activeEffects.push(`${keyword} (crits on ${antiValue}+)`);
+                        }
+                    } else if (keyword === 'devastating-wounds' || keyword === 'devastating wounds') {
+                        activeEffects.push('Devastating Wounds (crits = mortal)');
+                    } else if (keyword === 'hazardous') {
+                        activeEffects.push('Hazardous (1s = casualties)');
+                    } else if (keyword === 'ignores-cover' || keyword === 'ignores cover') {
+                        activeEffects.push('Ignores Cover');
+                    } else if (keyword === 'sustained-hits' || keyword === 'sustained hits') {
+                        const shValue = results.keywordData[keyword.replace(' ', '-')] || 1;
+                        activeEffects.push(`Sustained Hits ${shValue}`);
+                    }
+                    // Don't show anything for inactive keywords
+                });
+                
+                if (activeEffects.length > 0) {
+                    probCards.push(['Active Weapon Abilities', activeEffects.join(', ')]);
+                }
+            }
+            
+            // Add hazardous warning if present
+            if (results.hazardousWarning) {
+                const warningCard = document.createElement('div');
+                warningCard.className = 'probability-card';
+                warningCard.style.backgroundColor = 'rgba(204, 51, 51, 0.1)';
+                warningCard.style.border = '1px solid var(--accent-color)';
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'label';
+                labelDiv.textContent = 'Hazardous Warning';
+                labelDiv.style.color = 'var(--accent-color)';
+                
+                const valueDiv = document.createElement('div');
+                valueDiv.className = 'value';
+                valueDiv.textContent = results.hazardousWarning;
+                valueDiv.style.fontSize = '11px';
+                valueDiv.style.color = 'var(--accent-light)';
+                
+                warningCard.appendChild(labelDiv);
+                warningCard.appendChild(valueDiv);
+                probabilityDiv.appendChild(warningCard);
             }
             
             probCards.forEach(([label, value]) => {
@@ -1205,13 +1884,70 @@
                 valueDiv.className = 'value';
                 valueDiv.textContent = value;
                 
+                // Special styling for active effects
+                if (label === 'Weapon Abilities') {
+                    valueDiv.style.fontSize = '11px';
+                    valueDiv.style.lineHeight = '1.3';
+                    card.style.gridColumn = 'span 2';
+                }
+                
                 card.appendChild(labelDiv);
                 card.appendChild(valueDiv);
                 probabilityDiv.appendChild(card);
             });
             
+            // Add hazardous warning if present
+            if (results.hazardousWarning) {
+                const warningCard = document.createElement('div');
+                warningCard.className = 'probability-card';
+                warningCard.style.backgroundColor = 'rgba(204, 51, 51, 0.1)';
+                warningCard.style.border = '1px solid var(--accent-color)';
+                warningCard.style.gridColumn = 'span 2';
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'label';
+                labelDiv.textContent = 'Hazardous Warning';
+                labelDiv.style.color = 'var(--accent-color)';
+                
+                const valueDiv = document.createElement('div');
+                valueDiv.className = 'value';
+                valueDiv.textContent = results.hazardousWarning;
+                valueDiv.style.fontSize = '11px';
+                valueDiv.style.color = 'var(--accent-light)';
+                
+                warningCard.appendChild(labelDiv);
+                warningCard.appendChild(valueDiv);
+                probabilityDiv.appendChild(warningCard);
+            }
+            
             document.getElementById('results').style.display = 'block';
             document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        function setupInputValidation() {
+            // Add input validation to all numeric inputs
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+                input.addEventListener('input', function(e) {
+                    const min = parseFloat(this.min);
+                    const max = parseFloat(this.max);
+                    const value = parseFloat(this.value);
+                    
+                    if (!isNaN(value)) {
+                        if (value < min) this.value = min;
+                        if (value > max) this.value = max;
+                    }
+                });
+                
+                // Prevent invalid characters
+                input.addEventListener('keypress', function(e) {
+                    const char = String.fromCharCode(e.which);
+                    const validChars = '0123456789.';
+                    
+                    if (!validChars.includes(char) && e.which !== 8 && e.which !== 46) {
+                        e.preventDefault();
+                    }
+                });
+            });
         }
         
         document.addEventListener('DOMContentLoaded', initializeApp);
